@@ -2450,11 +2450,11 @@ function showPage(name, navEl) {
       <button class="ai-chat-close" id="aiChatClose" type="button" aria-label="Close AI assistant">&times;</button>
     </div>
     <div class="ai-chat-messages" id="aiChatMessages">
-      <div class="ai-msg ai-msg-bot">你好，我可以帮你理解 BatteryTwin 数据集、schema、ETL 脚本和 benchmark 流程。</div>
+      <div class="ai-msg ai-msg-bot">Hi, I can help you understand BatteryTwin datasets, schema, ETL scripts, and benchmark workflows.</div>
     </div>
     <form class="ai-chat-form" id="aiChatForm">
-      <input id="aiChatInput" type="text" placeholder="输入你的问题..." autocomplete="off">
-      <button type="submit">发送</button>
+      <input id="aiChatInput" type="text" placeholder="Ask a question..." autocomplete="off">
+      <button type="submit">Send</button>
     </form>
   </section>
 </div>
@@ -2490,7 +2490,7 @@ function showPage(name, navEl) {
     addMessage(message, 'user');
     input.value = '';
     input.disabled = true;
-    const loading = addMessage('正在思考...', 'bot');
+    const loading = addMessage('Thinking...', 'bot');
 
     try {
       const response = await fetch('/api/chat', {
@@ -2499,9 +2499,9 @@ function showPage(name, navEl) {
         body: JSON.stringify({ message })
       });
       const data = await response.json();
-      loading.textContent = data.reply || '没有收到 AI 回复。';
+      loading.textContent = data.reply || 'No AI response was received.';
     } catch (error) {
-      loading.textContent = '连接 AI 后端失败。请确认 app.py 正在运行，并且页面是从 http://127.0.0.1:8000 打开的。';
+      loading.textContent = 'Could not connect to the AI backend. Make sure app.py is running and this page was opened from http://127.0.0.1:8000.';
     } finally {
       input.disabled = false;
       input.focus();
