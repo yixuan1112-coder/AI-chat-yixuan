@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.so
+*.egg-info/
+dist/
+build/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Environments
+.venv/
+env/
+venv/
+conda-env/
+*.env
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Data folders (keep structure but ignore large files)
+data/raw/*
+!data/raw/.gitkeep
+
+data/interim/*
+!data/interim/.gitkeep
+
+# Processed data can also be large
+data/processed/*
+!data/processed/.gitkeep
+nasa_battery.zip
+data/raw/
+*.zip
+data/processed/dataset_01/NASA_PCoE_timeseries.csv
+data/processed/dataset_01/NASA_PCoE_timeseries.parquet

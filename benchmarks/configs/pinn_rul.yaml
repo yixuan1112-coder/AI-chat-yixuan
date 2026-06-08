@@ -1,0 +1,9 @@
+train_params:
+  learning_rate: 0.001
+  max_epochs: 200
+  patience: 20
+  batch_size: 64
+model_params:
+  input_dim: 4
+  hidden_dim: 64
+  lambda: 0.1

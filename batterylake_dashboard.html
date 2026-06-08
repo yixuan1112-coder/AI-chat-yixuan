@@ -1,0 +1,838 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BatteryTwin — Benchmark Portal</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<style>
+:root {
+  --bg: #03080f;
+  --bg2: #060e1a;
+  --surface: #0c1825;
+  --surface2: #0f2035;
+  --border: rgba(0,180,255,0.12);
+  --border2: rgba(0,180,255,0.22);
+  --accent: #00b4ff;
+  --accent2: #00ffd0;
+  --accent3: #7c5cfc;
+  --warn: #ff9f3c;
+  --ok: #00e8a2;
+  --danger: #ff4e6a;
+  --text: #e8f4ff;
+  --text2: #7fb3cc;
+  --text3: #3d6a85;
+  --mono: 'IBM Plex Mono', monospace;
+  --display: 'Syne', sans-serif;
+  --body: 'Instrument Sans', sans-serif;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body { font-family: var(--body); background: var(--bg); color: var(--text); min-height: 100vh; overflow-x: hidden; }
+body::before {
+  content: ''; position: fixed; inset: 0;
+  background: repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.035) 2px,rgba(0,0,0,0.035) 4px);
+  pointer-events: none; z-index: 9999;
+}
+#bgCanvas { position: fixed; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:0; opacity:0.55; }
+.content { position: relative; z-index: 1; }
+
+/* ── HEADER ── */
+header {
+  padding: 0 2.5rem;
+  border-bottom: 1px solid var(--border);
+  background: rgba(3,8,15,0.94);
+  backdrop-filter: blur(16px);
+  position: sticky; top: 0; z-index: 200;
+  display: flex; align-items: center; justify-content: space-between;
+  height: 62px;
+}
+.logo { display: flex; align-items: center; gap: 12px; }
+.logo-mark {
+  width: 34px; height: 34px; border: 1.5px solid var(--accent);
+  border-radius: 8px; display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(135deg, rgba(0,180,255,0.1), rgba(124,92,252,0.1));
+  font-size: 17px; filter: drop-shadow(0 0 5px var(--accent));
+}
+.logo-text { font-family: var(--display); font-weight: 800; font-size: 1.05rem; letter-spacing: -0.02em; }
+.logo-text span { color: var(--accent); }
+.logo-badge {
+  font-family: var(--mono); font-size: 0.58rem; color: var(--accent2);
+  background: rgba(0,255,208,0.07); border: 1px solid rgba(0,255,208,0.2);
+  padding: 2px 7px; border-radius: 4px; letter-spacing: 0.1em; text-transform: uppercase;
+}
+
+/* NAV TABS */
+.nav-tabs { display: flex; gap: 4px; }
+.nav-tab {
+  font-family: var(--mono); font-size: 0.7rem; padding: 6px 16px;
+  border-radius: 6px; border: 1px solid transparent;
+  background: none; color: var(--text3); cursor: pointer;
+  transition: all 0.2s; letter-spacing: 0.04em;
+  text-decoration: none; display: inline-flex; align-items: center; gap: 6px;
+}
+.nav-tab:hover { color: var(--text2); border-color: var(--border); }
+.nav-tab.active { background: rgba(0,180,255,0.08); border-color: var(--accent); color: var(--accent); }
+.nav-tab .dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+
+.header-right { display: flex; align-items: center; gap: 8px; }
+.hbtn {
+  font-family: var(--mono); font-size: 0.68rem; padding: 5px 13px;
+  border-radius: 5px; border: 1px solid var(--border2);
+  background: rgba(0,180,255,0.05); color: var(--accent);
+  text-decoration: none; cursor: pointer; transition: all 0.2s;
+}
+.hbtn:hover { background: rgba(0,180,255,0.12); box-shadow: 0 0 10px rgba(0,180,255,0.18); }
+.hbtn.primary { background: var(--accent); color: var(--bg); border-color: var(--accent); font-weight: 600; }
+.hbtn.primary:hover { background: #2abfff; box-shadow: 0 0 18px rgba(0,180,255,0.35); }
+label.hbtn { display: inline-flex; align-items: center; }
+input[type="file"] { display: none; }
+
+/* ── SECTIONS ── */
+.section { display: none; }
+.section.active { display: block; }
+
+/* ── SHARED ── */
+.page-wrap { max-width: 1300px; margin: 0 auto; padding: 0 2.5rem; }
+
+/* ── HERO ── */
+.hero { padding: 4.5rem 0 3.5rem; }
+.hero-tag {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-family: var(--mono); font-size: 0.68rem; color: var(--accent2);
+  background: rgba(0,255,208,0.06); border: 1px solid rgba(0,255,208,0.18);
+  padding: 4px 12px; border-radius: 20px; margin-bottom: 1.4rem; letter-spacing: 0.09em;
+}
+.hero-tag::before {
+  content: ''; width: 5px; height: 5px; border-radius: 50%;
+  background: var(--accent2); box-shadow: 0 0 7px var(--accent2);
+  animation: blink 2s infinite;
+}
+@keyframes blink { 0%,100%{opacity:1}50%{opacity:0.3} }
+.hero h1 {
+  font-family: var(--display); font-weight: 800;
+  font-size: clamp(2.2rem,4.5vw,3.6rem); line-height: 1.05;
+  letter-spacing: -0.03em; margin-bottom: 1rem;
+  background: linear-gradient(130deg, var(--text) 35%, var(--accent) 65%, var(--accent3) 100%);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+}
+.hero-sub { font-size: 0.98rem; color: var(--text2); max-width: 600px; line-height: 1.75; margin-bottom: 2.5rem; }
+
+/* ── METRICS STRIP ── */
+.metrics-strip {
+  display: grid; grid-template-columns: repeat(5,1fr);
+  gap: 1px; background: var(--border);
+  border: 1px solid var(--border); border-radius: 12px;
+  overflow: hidden; margin-bottom: 3rem;
+}
+.mcell {
+  background: var(--surface); padding: 1.3rem 1.5rem;
+  position: relative; overflow: hidden; transition: background 0.25s;
+}
+.mcell:hover { background: var(--surface2); }
+.mcell::after { content:''; position:absolute; bottom:0; left:0; right:0; height:2px; }
+.mcell.c1::after { background:var(--accent); box-shadow:0 0 8px var(--accent); }
+.mcell.c2::after { background:var(--ok); box-shadow:0 0 8px var(--ok); }
+.mcell.c3::after { background:var(--accent3); box-shadow:0 0 8px var(--accent3); }
+.mcell.c4::after { background:var(--warn); box-shadow:0 0 8px var(--warn); }
+.mcell.c5::after { background:var(--danger); box-shadow:0 0 8px var(--danger); }
+.mlabel { font-family:var(--mono); font-size:0.62rem; letter-spacing:0.12em; text-transform:uppercase; color:var(--text3); margin-bottom:0.45rem; }
+.mval { font-family:var(--display); font-weight:800; font-size:1.9rem; line-height:1; margin-bottom:0.25rem; }
+.mcell.c1 .mval{color:var(--accent)} .mcell.c2 .mval{color:var(--ok)}
+.mcell.c3 .mval{color:var(--accent3)} .mcell.c4 .mval{color:var(--warn)} .mcell.c5 .mval{color:var(--danger)}
+.msub { font-family:var(--mono); font-size:0.6rem; color:var(--text3); }
+
+/* ── SYNC STATUS BAR ── */
+.sync-bar {
+  display: flex; align-items: center; gap: 10px; margin-bottom: 2rem;
+  font-family: var(--mono); font-size: 0.68rem;
+  background: var(--surface); border: 1px solid var(--border);
+  padding: 8px 14px; border-radius: 8px; width: fit-content;
+}
+.sync-dot { width:8px; height:8px; border-radius:50%; background:var(--text3); }
+.sync-dot.syncing { background:var(--warn); animation: blink 1s infinite; }
+.sync-dot.ok { background:var(--ok); box-shadow: 0 0 7px var(--ok); }
+.sync-dot.error { background:var(--danger); }
+.sync-text { color: var(--text2); }
+
+/* ── PROGRESS ── */
+.section-title {
+  font-family: var(--display); font-size: 1rem; font-weight: 700;
+  color: var(--text2); letter-spacing: 0.05em; text-transform: uppercase;
+  margin-bottom: 1.4rem; display: flex; align-items: center; gap: 10px;
+}
+.section-title::after { content:''; flex:1; height:1px; background:var(--border); }
+
+.prog-grid { display: grid; grid-template-columns: repeat(auto-fill,minmax(260px,1fr)); gap: 0.85rem; margin-bottom: 3rem; }
+.pcard {
+  background:var(--surface); border:1px solid var(--border); border-radius:10px;
+  padding:1.1rem 1.3rem; transition:border-color 0.2s, transform 0.2s;
+}
+.pcard:hover { border-color:var(--border2); transform:translateY(-2px); }
+.pcard-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:0.7rem; }
+.pcard-name { font-family:var(--mono); font-size:0.72rem; color:var(--text); font-weight:600; }
+.pcard-pct { font-family:var(--mono); font-size:0.72rem; color:var(--accent); }
+.pbar-bg { height:3px; background:rgba(255,255,255,0.05); border-radius:2px; overflow:hidden; margin-bottom:0.55rem; }
+.pbar-fill {
+  height:100%; border-radius:2px;
+  background: linear-gradient(90deg, var(--accent), var(--accent2));
+  box-shadow: 0 0 8px rgba(0,180,255,0.35);
+  transition: width 1.6s cubic-bezier(0.4,0,0.2,1); width:0;
+}
+.step-row { display:flex; gap:3px; }
+.sdot { width:18px; height:3px; border-radius:2px; background:rgba(255,255,255,0.07); transition:background 0.3s; }
+.sdot.done { background:var(--ok); box-shadow:0 0 5px rgba(0,232,162,0.35); }
+.sdot.part { background:var(--warn); }
+
+/* ── TABLE ── */
+.table-controls { display:flex; align-items:center; justify-content:space-between; margin-bottom:1.2rem; flex-wrap:wrap; gap:0.8rem; }
+.filter-row { display:flex; gap:7px; flex-wrap:wrap; }
+.fi {
+  font-family:var(--mono); font-size:0.7rem;
+  background:var(--surface); border:1px solid var(--border);
+  color:var(--text); padding:6px 11px; border-radius:6px; outline:none;
+  transition:border-color 0.2s; min-width:210px;
+}
+.fi:focus { border-color:var(--accent); box-shadow:0 0 0 2px rgba(0,180,255,0.1); }
+.fi::placeholder { color:var(--text3); }
+select.fi option { background:var(--bg2); }
+
+.table-wrap { background:var(--surface); border:1px solid var(--border); border-radius:12px; overflow:hidden; }
+table { width:100%; border-collapse:collapse; }
+thead th {
+  font-family:var(--mono); font-size:0.62rem; letter-spacing:0.1em;
+  text-transform:uppercase; color:var(--text3); padding:11px 15px;
+  text-align:left; background:var(--bg2); border-bottom:1px solid var(--border);
+  white-space:nowrap; cursor:pointer; user-select:none; transition:color 0.2s;
+}
+thead th:hover { color:var(--accent); }
+thead th.sorted { color:var(--accent); }
+thead th::after { content:' ↕'; opacity:0.25; font-size:0.8em; }
+thead th.asc::after { content:' ↑'; opacity:1; }
+thead th.desc::after { content:' ↓'; opacity:1; }
+tbody tr { border-bottom:1px solid var(--border); transition:background 0.12s; cursor:pointer; }
+tbody tr:last-child { border-bottom:none; }
+tbody tr:hover { background:rgba(0,180,255,0.045); }
+tbody td { font-family:var(--mono); font-size:0.7rem; padding:9px 15px; color:var(--text2); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:200px; }
+.tdid { color:var(--accent3); font-weight:600; }
+.tdname { color:var(--text)!important; font-family:var(--body)!important; font-size:0.78rem!important; font-weight:500; }
+.pill { display:inline-block; padding:2px 8px; border-radius:4px; font-size:0.6rem; font-weight:600; letter-spacing:0.08em; text-transform:uppercase; }
+.pill-done { background:rgba(0,232,162,0.1); color:var(--ok); border:1px solid rgba(0,232,162,0.22); }
+.pill-pending { background:rgba(255,159,60,0.1); color:var(--warn); border:1px solid rgba(255,159,60,0.22); }
+.pill-skip { background:rgba(255,78,106,0.09); color:var(--danger); border:1px solid rgba(255,78,106,0.18); }
+.pill-wip { background:rgba(124,92,252,0.1); color:var(--accent3); border:1px solid rgba(124,92,252,0.22); }
+.ck::before { font-size:0.85rem; }
+.ck.y::before { content:'✓'; color:var(--ok); }
+.ck.n::before { content:'·'; color:var(--text3); }
+.empty-state { padding:3.5rem 2rem; text-align:center; color:var(--text3); font-family:var(--mono); font-size:0.78rem; }
+.empty-icon { font-size:2rem; margin-bottom:0.8rem; opacity:0.25; }
+
+/* ── DRAWER ── */
+.overlay { position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:300;opacity:0;pointer-events:none;transition:opacity 0.3s;backdrop-filter:blur(4px); }
+.overlay.open { opacity:1;pointer-events:all; }
+.drawer {
+  position:fixed;top:0;right:0;bottom:0;width:min(480px,90vw);
+  background:var(--surface);border-left:1px solid var(--border2);z-index:301;
+  transform:translateX(100%);transition:transform 0.32s cubic-bezier(0.4,0,0.2,1);
+  overflow-y:auto;padding:2rem;
+}
+.drawer.open { transform:translateX(0); }
+.drclose {
+  position:absolute;top:1.4rem;right:1.4rem;
+  background:none;border:1px solid var(--border);color:var(--text2);
+  width:30px;height:30px;border-radius:5px;cursor:pointer;font-size:0.9rem;
+  display:flex;align-items:center;justify-content:center;transition:all 0.2s;
+}
+.drclose:hover { border-color:var(--danger);color:var(--danger); }
+.drid { font-family:var(--mono);font-size:0.67rem;color:var(--accent3);margin-bottom:0.45rem; }
+.drname { font-family:var(--display);font-size:1.3rem;font-weight:700;color:var(--text);margin-bottom:1.4rem;line-height:1.2; }
+.drsec { margin-bottom:1.4rem; }
+.drsec-title { font-family:var(--mono);font-size:0.6rem;letter-spacing:0.13em;text-transform:uppercase;color:var(--text3);margin-bottom:0.7rem;padding-bottom:0.45rem;border-bottom:1px solid var(--border); }
+.drgrid { display:grid;grid-template-columns:1fr 1fr;gap:0.55rem; }
+.dk { font-family:var(--mono);font-size:0.6rem;color:var(--text3);margin-bottom:2px; }
+.dv { font-size:0.78rem;color:var(--text);font-weight:500; }
+.checklist { display:grid;grid-template-columns:1fr 1fr;gap:0.35rem; }
+.ci { display:flex;align-items:center;gap:7px;font-family:var(--mono);font-size:0.68rem;padding:5px 9px;border-radius:4px;background:rgba(255,255,255,0.025); }
+.ci.ok { color:var(--ok); } .ci.no { color:var(--text3); }
+.notesbox { font-family:var(--mono);font-size:0.67rem;color:var(--text2);background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:0.9rem;line-height:1.75;white-space:pre-wrap;word-break:break-word; }
+
+/* ══════════════════════════════════════════════════════
+   SECTION 2 — BENCHMARK
+══════════════════════════════════════════════════════ */
+.bm-hero { padding: 4.5rem 0 3rem; }
+.bm-hero h1 {
+  font-family: var(--display); font-weight: 800;
+  font-size: clamp(2.2rem,4.5vw,3.6rem); line-height: 1.05;
+  letter-spacing: -0.03em; margin-bottom: 1rem;
+  background: linear-gradient(130deg, var(--text) 30%, var(--accent3) 60%, var(--accent) 100%);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+}
+.bm-hero-sub { font-size: 0.98rem; color: var(--text2); max-width: 580px; line-height: 1.75; margin-bottom: 2.5rem; }
+
+/* Benchmark metrics */
+.bm-metrics { display:grid; grid-template-columns:repeat(4,1fr); gap:1px; background:var(--border); border:1px solid var(--border); border-radius:12px; overflow:hidden; margin-bottom:2.5rem; }
+.bm-mcell { background:var(--surface); padding:1.3rem 1.5rem; position:relative; overflow:hidden; }
+.bm-mcell::after { content:''; position:absolute; bottom:0; left:0; right:0; height:2px; }
+.bm-mcell.a::after{background:var(--accent3);box-shadow:0 0 8px var(--accent3)}
+.bm-mcell.b::after{background:var(--accent);box-shadow:0 0 8px var(--accent)}
+.bm-mcell.c::after{background:var(--ok);box-shadow:0 0 8px var(--ok)}
+.bm-mcell.d::after{background:var(--warn);box-shadow:0 0 8px var(--warn)}
+.bm-mcell.a .mval{color:var(--accent3)} .bm-mcell.b .mval{color:var(--accent)}
+.bm-mcell.c .mval{color:var(--ok)} .bm-mcell.d .mval{color:var(--warn)}
+
+/* Architecture diagram */
+.arch-wrap { display:grid; grid-template-columns:1fr 1fr; gap:1.2rem; margin-bottom:2.5rem; }
+.arch-box {
+  background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:1.4rem;
+}
+.arch-box h3 { font-family:var(--display); font-weight:700; font-size:0.9rem; color:var(--text); margin-bottom:1rem; display:flex; align-items:center; gap:8px; }
+.arch-badge { font-family:var(--mono); font-size:0.58rem; padding:2px 7px; border-radius:4px; font-weight:500; }
+.badge-p1 { background:rgba(0,180,255,0.1); color:var(--accent); border:1px solid rgba(0,180,255,0.2); }
+.badge-p2 { background:rgba(124,92,252,0.1); color:var(--accent3); border:1px solid rgba(124,92,252,0.2); }
+
+.layer-list { display:flex; flex-direction:column; gap:0.6rem; }
+.layer-item {
+  display:flex; align-items:center; gap:10px;
+  font-family:var(--mono); font-size:0.7rem; color:var(--text2);
+  background:var(--bg2); border:1px solid var(--border);
+  padding:8px 12px; border-radius:6px;
+}
+.layer-num { font-family:var(--display); font-weight:800; font-size:0.9rem; color:var(--accent); min-width:20px; }
+.layer-arrow { color:var(--text3); font-size:0.8rem; }
+
+/* Models grid */
+.models-grid { display:grid; grid-template-columns:repeat(5,1fr); gap:0.8rem; margin-bottom:2.5rem; }
+.model-card {
+  background:var(--surface); border:1px solid var(--border); border-radius:10px;
+  padding:1.1rem 1rem; text-align:center; transition:all 0.25s;
+  cursor:default;
+}
+.model-card:hover { border-color:var(--border2); transform:translateY(-3px); box-shadow:0 8px 24px rgba(0,0,0,0.3); }
+.model-icon { font-size:1.6rem; margin-bottom:0.6rem; }
+.model-name { font-family:var(--display); font-weight:700; font-size:0.85rem; color:var(--text); margin-bottom:0.25rem; }
+.model-desc { font-family:var(--mono); font-size:0.6rem; color:var(--text3); line-height:1.5; }
+
+/* Results table */
+.results-wrap {
+  background:var(--surface); border:1px solid var(--border); border-radius:12px;
+  overflow:hidden; margin-bottom:2.5rem;
+}
+.results-wrap table { width:100%; border-collapse:collapse; }
+.results-wrap thead th {
+  font-family:var(--mono); font-size:0.6rem; letter-spacing:0.1em; text-transform:uppercase;
+  color:var(--text3); padding:10px 14px; background:var(--bg2); border-bottom:1px solid var(--border);
+  white-space:nowrap; text-align:right;
+}
+.results-wrap thead th:first-child { text-align:left; }
+.results-wrap thead th:nth-child(2) { text-align:left; }
+.results-wrap tbody tr { border-bottom:1px solid var(--border); transition:background 0.12s; }
+.results-wrap tbody tr:last-child { border-bottom:none; }
+.results-wrap tbody tr:hover { background:rgba(124,92,252,0.04); }
+.results-wrap tbody td { font-family:var(--mono); font-size:0.7rem; padding:9px 14px; color:var(--text2); text-align:right; }
+.results-wrap tbody td:first-child { text-align:left; color:var(--text3); font-size:0.62rem; }
+.results-wrap tbody td:nth-child(2) { text-align:left; color:var(--text); font-weight:600; font-size:0.75rem; }
+.val-best { color:var(--ok) !important; font-weight:600; }
+.val-worst { color:var(--danger) !important; }
+.val-mid { color:var(--accent) !important; }
+.na-val { color:var(--text3) !important; font-size:0.62rem !important; }
+
+/* Pipeline diagram */
+.pipeline { display:flex; align-items:center; gap:0; margin-bottom:2.5rem; overflow-x:auto; padding-bottom:0.5rem; }
+.pipe-step {
+  background:var(--surface); border:1px solid var(--border); border-radius:8px;
+  padding:1rem 1.2rem; min-width:130px; flex-shrink:0;
+  display:flex; flex-direction:column; align-items:center; gap:0.4rem; text-align:center;
+}
+.pipe-step.active { border-color:var(--accent); background:rgba(0,180,255,0.05); }
+.pipe-step.done { border-color:var(--ok); background:rgba(0,232,162,0.04); }
+.pipe-icon { font-size:1.4rem; }
+.pipe-name { font-family:var(--mono); font-size:0.65rem; color:var(--text2); }
+.pipe-status { font-family:var(--mono); font-size:0.55rem; }
+.pipe-status.sdone { color:var(--ok); } .pipe-status.swip { color:var(--warn); } .pipe-status.stodo { color:var(--text3); }
+.pipe-arrow { font-family:var(--mono); font-size:1.2rem; color:var(--text3); margin:0 4px; flex-shrink:0; padding-top:0.3rem; }
+
+/* ── FOOTER ── */
+footer {
+  border-top:1px solid var(--border); padding:1.4rem 2.5rem;
+  display:flex; justify-content:space-between; align-items:center;
+  font-family:var(--mono); font-size:0.62rem; color:var(--text3);
+}
+footer a { color:var(--accent); text-decoration:none; }
+
+/* ── ANIMATIONS ── */
+@keyframes fadeUp { from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)} }
+.fade-in { animation: fadeUp 0.5s ease both; }
+.d1{animation-delay:0.1s} .d2{animation-delay:0.2s} .d3{animation-delay:0.3s}
+
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:var(--surface2);border-radius:3px}
+
+@media(max-width:900px){
+  .metrics-strip{grid-template-columns:repeat(3,1fr)}
+  .bm-metrics{grid-template-columns:repeat(2,1fr)}
+  .models-grid{grid-template-columns:repeat(3,1fr)}
+  .arch-wrap{grid-template-columns:1fr}
+  .pipeline{flex-wrap:nowrap}
+}
+@media(max-width:600px){
+  header{padding:0 1rem}
+  .page-wrap{padding:0 1rem}
+  .metrics-strip{grid-template-columns:repeat(2,1fr)}
+  .models-grid{grid-template-columns:repeat(2,1fr)}
+}
+</style>
+</head>
+<body>
+<canvas id="bgCanvas"></canvas>
+<div class="content">
+
+<!-- HEADER -->
+<header>
+  <div class="logo">
+    <div class="logo-mark">⚡</div>
+    <div>
+      <div class="logo-text">Battery<span>Twin</span></div>
+    </div>
+    <div class="logo-badge">BENCHMARK</div>
+  </div>
+
+  <nav class="nav-tabs">
+    <button class="nav-tab active" onclick="switchTab('curation',this)">
+      <span class="dot"></span> Dataset Curation
+    </button>
+    <button class="nav-tab" onclick="switchTab('benchmark',this)">
+      <span class="dot"></span> Benchmark Results
+    </button>
+  </nav>
+
+  <div class="header-right">
+    <label class="hbtn" for="csvUpload">📂 Load CSV</label>
+    <input type="file" id="csvUpload" accept=".csv">
+    <button class="hbtn" onclick="loadGitHub()">⟳ GitHub Sync</button>
+    <a class="hbtn primary" href="https://github.com/tianwen1209/BatteryTwin-Benchmark-DataPrep" target="_blank">GitHub ↗</a>
+  </div>
+</header>
+
+<!-- ═══════════════════ SECTION 1: CURATION ═══════════════════ -->
+<section class="section active" id="sec-curation">
+  <div class="page-wrap">
+    <div class="hero fade-in">
+      <div class="hero-tag">NTU CCTF · Dataset Curation Portal</div>
+      <h1>Battery Dataset<br>Registry</h1>
+      <p class="hero-sub">Standardized curation pipeline for lithium-ion degradation datasets. Unified schema · ETL processing · QC validation.</p>
+
+      <!-- SYNC STATUS -->
+      <div class="sync-bar" id="syncBar">
+        <div class="sync-dot" id="syncDot"></div>
+        <span class="sync-text" id="syncText">Click "GitHub Sync" to load registry from repository</span>
+      </div>
+
+      <!-- METRICS -->
+      <div class="metrics-strip">
+        <div class="mcell c1"><div class="mlabel">Total Datasets</div><div class="mval" id="mTotal">—</div><div class="msub" id="mActiveSub">— active</div></div>
+        <div class="mcell c2"><div class="mlabel">Cycles Processed</div><div class="mval">9K+</div><div class="msub">9,095 cycles</div></div>
+        <div class="mcell c3"><div class="mlabel">Data Rows</div><div class="mval">7M+</div><div class="msub">timeseries entries</div></div>
+        <div class="mcell c4"><div class="mlabel">Institutions</div><div class="mval" id="mInst">—</div><div class="msub">universities & labs</div></div>
+        <div class="mcell c5"><div class="mlabel">QC Passed</div><div class="mval" id="mQC">—</div><div class="msub">datasets verified</div></div>
+      </div>
+    </div>
+
+    <!-- PROGRESS -->
+    <div class="section-title fade-in d1">Pipeline Progress</div>
+    <div class="prog-grid fade-in d1" id="progGrid">
+      <!-- static defaults (overwritten when CSV loads) -->
+      <div class="pcard"><div class="pcard-head"><span class="pcard-name">01 · NASA PCoE</span><span class="pcard-pct">100%</span></div><div class="pbar-bg"><div class="pbar-fill" data-pct="100"></div></div><div class="step-row"><div class="sdot done"></div><div class="sdot done"></div><div class="sdot done"></div><div class="sdot done"></div><div class="sdot done"></div></div></div>
+      <div class="pcard"><div class="pcard-head"><span class="pcard-name">02 · CALCE CS2</span><span class="pcard-pct">100%</span></div><div class="pbar-bg"><div class="pbar-fill" data-pct="100"></div></div><div class="step-row"><div class="sdot done"></div><div class="sdot done"></div><div class="sdot done"></div><div class="sdot done"></div><div class="sdot done"></div></div></div>
+      <div class="pcard"><div class="pcard-head"><span class="pcard-name">03 · Stanford-MIT-TRI</span><span class="pcard-pct">100%</span></div><div class="pbar-bg"><div class="pbar-fill" data-pct="100"></div></div><div class="step-row"><div class="sdot done"></div><div class="sdot done"></div><div class="sdot done"></div><div class="sdot done"></div><div class="sdot done"></div></div></div>
+      <div class="pcard"><div class="pcard-head"><span class="pcard-name">04 · Oxford NCA</span><span class="pcard-pct">60%</span></div><div class="pbar-bg"><div class="pbar-fill" data-pct="60"></div></div><div class="step-row"><div class="sdot done"></div><div class="sdot part"></div><div class="sdot part"></div><div class="sdot"></div><div class="sdot"></div></div></div>
+      <div class="pcard"><div class="pcard-head"><span class="pcard-name">05 · RWTH Aachen</span><span class="pcard-pct">100%</span></div><div class="pbar-bg"><div class="pbar-fill" data-pct="100"></div></div><div class="step-row"><div class="sdot done"></div><div class="sdot done"></div><div class="sdot done"></div><div class="sdot done"></div><div class="sdot done"></div></div></div>
+    </div>
+    <p style="font-family:var(--mono);font-size:0.62rem;color:var(--text3);margin-bottom:2.5rem;">
+      Steps: <span style="color:var(--ok)">■</span> metadata &nbsp;
+      <span style="color:var(--ok)">■</span> timeseries &nbsp;
+      <span style="color:var(--ok)">■</span> cycle_summary &nbsp;
+      <span style="color:var(--ok)">■</span> dataset_note &nbsp;
+      <span style="color:var(--ok)">■</span> qc
+      &nbsp;&nbsp;<span style="color:var(--warn)">■</span> partial &nbsp;
+      <span style="color:var(--text3)">■</span> todo
+    </p>
+
+    <!-- TABLE -->
+    <div class="section-title fade-in d2">Dataset Registry</div>
+    <div class="table-controls fade-in d2">
+      <div class="filter-row">
+        <input class="fi" id="searchInput" type="text" placeholder="Search name, institution, chemistry...">
+        <select class="fi" id="filterStatus">
+          <option value="">All Status</option>
+          <option value="done">Done</option>
+          <option value="pending">Pending</option>
+          <option value="wip">WIP</option>
+          <option value="skip">Skip</option>
+        </select>
+      </div>
+      <span style="font-family:var(--mono);font-size:0.62rem;color:var(--text3)"><span id="rowCount">0</span> rows · click row for details</span>
+    </div>
+    <div class="table-wrap fade-in d2">
+      <table>
+        <thead><tr>
+          <th data-col="dataset_id">ID</th>
+          <th data-col="dataset_name">Name</th>
+          <th data-col="status">Status</th>
+          <th data-col="metadata_done">Meta</th>
+          <th data-col="timeseries_done">TS</th>
+          <th data-col="cycle_summary_done">Cycle</th>
+          <th data-col="dataset_note_done">Note</th>
+          <th data-col="qc_done">QC</th>
+          <th data-col="last_updated">Updated</th>
+        </tr></thead>
+        <tbody id="tableBody">
+          <tr><td colspan="9"><div class="empty-state"><div class="empty-icon">📂</div>Click <strong>GitHub Sync</strong> to auto-load registry, or upload your local CSV</div></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════ SECTION 2: BENCHMARK ═══════════════════ -->
+<section class="section" id="sec-benchmark">
+  <div class="page-wrap">
+    <div class="bm-hero fade-in">
+      <div class="hero-tag" style="color:var(--accent3);background:rgba(124,92,252,0.06);border-color:rgba(124,92,252,0.18)">NTU CCTF · Benchmark Evaluation Framework</div>
+      <h1>Model Benchmark<br>Results</h1>
+      <p class="bm-hero-sub">Standardized evaluation of 5 model architectures across curated battery datasets. SOH prediction · RUL estimation · Fair comparison protocol.</p>
+
+      <!-- BM METRICS -->
+      <div class="bm-metrics">
+        <div class="bm-mcell a"><div class="mlabel">Model Families</div><div class="mval">5</div><div class="msub">MLP · CNN · LSTM · TF · PINN</div></div>
+        <div class="bm-mcell b"><div class="mlabel">Evaluation Tasks</div><div class="mval">2</div><div class="msub">SOH Prediction · RUL Estimation</div></div>
+        <div class="bm-mcell c"><div class="mlabel">Datasets Covered</div><div class="mval" id="bmDatasets">5+</div><div class="msub">unified schema</div></div>
+        <div class="bm-mcell d"><div class="mlabel">Data Split</div><div class="mval">70/15/15</div><div class="msub">by cell · seed=42</div></div>
+      </div>
+    </div>
+
+    <!-- PIPELINE DIAGRAM -->
+    <div class="section-title fade-in d1">Evaluation Pipeline</div>
+    <div class="pipeline fade-in d1">
+      <div class="pipe-step done"><div class="pipe-icon">📊</div><div class="pipe-name">Raw Data</div><div class="pipe-status sdone">✓ curated</div></div>
+      <div class="pipe-arrow">→</div>
+      <div class="pipe-step done"><div class="pipe-icon">🔧</div><div class="pipe-name">ETL / Schema</div><div class="pipe-status sdone">✓ unified</div></div>
+      <div class="pipe-arrow">→</div>
+      <div class="pipe-step done"><div class="pipe-icon">✂️</div><div class="pipe-name">Cell Split</div><div class="pipe-status sdone">✓ 70/15/15</div></div>
+      <div class="pipe-arrow">→</div>
+      <div class="pipe-step active"><div class="pipe-icon">🧠</div><div class="pipe-name">Train Models</div><div class="pipe-status swip">⟳ in progress</div></div>
+      <div class="pipe-arrow">→</div>
+      <div class="pipe-step"><div class="pipe-icon">📐</div><div class="pipe-name">Evaluate</div><div class="pipe-status stodo">· pending</div></div>
+      <div class="pipe-arrow">→</div>
+      <div class="pipe-step"><div class="pipe-icon">📋</div><div class="pipe-name">Results Table</div><div class="pipe-status stodo">· pending</div></div>
+    </div>
+
+    <!-- ARCHITECTURE -->
+    <div class="section-title fade-in d1">Work Partition</div>
+    <div class="arch-wrap fade-in d2">
+      <div class="arch-box">
+        <h3><span class="arch-badge badge-p1">Part 1 — Liu Kefan</span> Benchmark Core Framework</h3>
+        <div class="layer-list">
+          <div class="layer-item"><span class="layer-num">①</span><span class="layer-arrow">→</span>Data Curation (datasets 01–05) + Registry</div>
+          <div class="layer-item"><span class="layer-num">②</span><span class="layer-arrow">→</span>Cell-level Split Protocol (seed=42, by cell)</div>
+          <div class="layer-item"><span class="layer-num">③</span><span class="layer-arrow">→</span>5 Model Implementations (MLP/CNN/LSTM/TF/PINN)</div>
+          <div class="layer-item"><span class="layer-num">④</span><span class="layer-arrow">→</span>Unified train.py entry (--model / --task / --budget)</div>
+          <div class="layer-item"><span class="layer-num">⑤</span><span class="layer-arrow">→</span>Evaluation & 15×5 results matrix</div>
+        </div>
+      </div>
+      <div class="arch-box">
+        <h3><span class="arch-badge badge-p2">Part 2 — Cao Han</span> Five-Dimensional Experiments</h3>
+        <div class="layer-list">
+          <div class="layer-item"><span class="layer-num">A</span><span class="layer-arrow">→</span>Multi-temperature generalization (--group_by_temp)</div>
+          <div class="layer-item"><span class="layer-num">B</span><span class="layer-arrow">→</span>Data budget study (--budget 0.1/0.2/0.5/1.0)</div>
+          <div class="layer-item"><span class="layer-num">G</span><span class="layer-arrow">→</span>Transfer learning baselines</div>
+          <div class="layer-item"><span class="layer-item-text" style="flex:1;font-size:0.68rem"></span></div>
+          <div class="layer-item" style="border-color:rgba(124,92,252,0.2);background:rgba(124,92,252,0.04)"><span style="font-family:var(--mono);font-size:0.62rem;color:var(--text3)">Interface: depends on train.py API from Part 1</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODELS -->
+    <div class="section-title fade-in d2">Model Families</div>
+    <div class="models-grid fade-in d2">
+      <div class="model-card"><div class="model-icon">🔷</div><div class="model-name">MLP</div><div class="model-desc">Baseline · lower bound · tabular features</div></div>
+      <div class="model-card"><div class="model-icon">🧩</div><div class="model-name">CNN</div><div class="model-desc">Local pattern extraction · 1D conv kernels</div></div>
+      <div class="model-card"><div class="model-icon">🔄</div><div class="model-name">LSTM</div><div class="model-desc">Sequential time-series · long-term dependency</div></div>
+      <div class="model-card"><div class="model-icon">⚡</div><div class="model-name">Transformer</div><div class="model-desc">Global attention · multi-head self-attention</div></div>
+      <div class="model-card"><div class="model-icon">🔬</div><div class="model-name">PINN</div><div class="model-desc">Physics-informed · degradation ODE constraint</div></div>
+    </div>
+
+    <!-- RESULTS TABLE (placeholder with real structure) -->
+    <div class="section-title fade-in d3">Results Matrix <span style="font-family:var(--mono);font-size:0.65rem;font-weight:400;color:var(--text3);letter-spacing:0;text-transform:none">— SOH MAE ↓ &nbsp;/&nbsp; RUL MAE(cycles) ↓</span></div>
+    <div class="results-wrap fade-in d3">
+      <table>
+        <thead><tr>
+          <th style="text-align:left">Dataset ID</th>
+          <th style="text-align:left">Dataset</th>
+          <th>MLP</th><th>CNN</th><th>LSTM</th><th>Transformer</th><th>PINN</th>
+        </tr></thead>
+        <tbody id="resultsBody">
+          <tr>
+            <td>dataset_01</td><td>NASA PCoE</td>
+            <td class="val-mid">0.0182</td><td>0.0154</td><td class="val-best">0.0098</td><td>0.0112</td><td>0.0127</td>
+          </tr>
+          <tr>
+            <td>dataset_02</td><td>CALCE CS2</td>
+            <td class="val-worst">0.0241</td><td>0.0198</td><td class="val-best">0.0115</td><td>0.0121</td><td>0.0133</td>
+          </tr>
+          <tr>
+            <td>dataset_03</td><td>Stanford-MIT-TRI</td>
+            <td>0.0312</td><td>0.0267</td><td>0.0201</td><td class="val-best">0.0178</td><td>0.0195</td>
+          </tr>
+          <tr>
+            <td>dataset_04</td><td>Oxford NCA</td>
+            <td colspan="5" style="text-align:center;color:var(--text3);font-size:0.62rem">⟳ ETL in progress — MATLAB conversion pending</td>
+          </tr>
+          <tr>
+            <td>dataset_05</td><td>RWTH Aachen</td>
+            <td>0.0228</td><td>0.0193</td><td class="val-best">0.0141</td><td>0.0158</td><td>0.0167</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p style="font-family:var(--mono);font-size:0.62rem;color:var(--text3);margin-bottom:3rem">
+      <span style="color:var(--ok)">■</span> Best per row &nbsp;
+      <span style="color:var(--danger)">■</span> Worst &nbsp;
+      <span style="color:var(--accent)">■</span> Mid &nbsp;
+      · Values shown are illustrative placeholders — replace with actual eval output
+    </p>
+  </div>
+</section>
+
+<!-- DRAWER -->
+<div class="overlay" id="overlay" onclick="closeDrawer()"></div>
+<div class="drawer" id="drawer">
+  <button class="drclose" onclick="closeDrawer()">✕</button>
+  <div class="drid" id="drid"></div>
+  <div class="drname" id="drname"></div>
+  <div id="drcontent"></div>
+</div>
+
+<!-- FOOTER -->
+<footer>
+  <div>BatteryTwin Benchmark · NTU CCTF · <span id="footerDate">—</span></div>
+  <div>
+    <a href="https://github.com/tianwen1209/BatteryTwin-Benchmark-DataPrep" target="_blank">tianwen1209/BatteryTwin-Benchmark-DataPrep ↗</a>
+    &nbsp;·&nbsp; Supervisor: Prof. Wen Yonggang
+  </div>
+</footer>
+</div>
+
+<script>
+// ─── PARTICLE BG ──────────────────────────────────────────────────────────
+const cvs = document.getElementById('bgCanvas');
+const ctx = cvs.getContext('2d');
+let W, H, pts = [];
+function rsz(){ W=cvs.width=innerWidth; H=cvs.height=innerHeight; }
+window.addEventListener('resize', rsz); rsz();
+function initPts(){ pts = Array.from({length:55},()=>({x:Math.random()*W,y:Math.random()*H,vx:(Math.random()-.5)*.28,vy:(Math.random()-.5)*.28,r:Math.random()*1.4+.5,p:Math.random()*Math.PI*2})); }
+initPts();
+function drawBg(){
+  ctx.clearRect(0,0,W,H);
+  for(let i=0;i<pts.length;i++){
+    for(let j=i+1;j<pts.length;j++){
+      const dx=pts[i].x-pts[j].x, dy=pts[i].y-pts[j].y, d=Math.sqrt(dx*dx+dy*dy);
+      if(d<135){ ctx.strokeStyle=`rgba(0,180,255,${(1-d/135)*.16})`; ctx.lineWidth=.5; ctx.beginPath(); ctx.moveTo(pts[i].x,pts[i].y); ctx.lineTo(pts[j].x,pts[j].y); ctx.stroke(); }
+    }
+  }
+  pts.forEach(p=>{
+    p.p+=.018; const a=.38+Math.sin(p.p)*.18;
+    ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2); ctx.fillStyle=`rgba(0,180,255,${a})`; ctx.fill();
+    p.x+=p.vx; p.y+=p.vy;
+    if(p.x<0||p.x>W)p.vx*=-1; if(p.y<0||p.y>H)p.vy*=-1;
+  });
+  requestAnimationFrame(drawBg);
+}
+drawBg();
+
+// ─── PROGRESS BARS ────────────────────────────────────────────────────────
+function animateBars(){
+  document.querySelectorAll('.pbar-fill').forEach(b=>{
+    setTimeout(()=>{ b.style.width=(b.dataset.pct||0)+'%'; }, 400);
+  });
+}
+setTimeout(animateBars, 600);
+
+// ─── TAB SWITCH ───────────────────────────────────────────────────────────
+function switchTab(name, btn){
+  document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('sec-'+name).classList.add('active');
+}
+
+// ─── DATA ─────────────────────────────────────────────────────────────────
+let allData = [], sortCol='', sortDir='asc';
+
+// GitHub raw URL — update this to your actual repo path
+const GITHUB_RAW = 'https://raw.githubusercontent.com/tianwen1209/BatteryTwin-Benchmark-DataPrep/main/dataset_registry.csv';
+
+const SAMPLE = [
+  {dataset_id:'dataset_01',dataset_name:'NASA PCoE Battery Dataset',status:'done',metadata_done:'yes',timeseries_done:'yes',cycle_summary_done:'yes',dataset_note_done:'yes',qc_done:'yes',last_updated:'2026/3/18',notes:'NASA; 4 cells; Li-ion 18650; B0005/B0006/B0007/B0018; 168 cycles'},
+  {dataset_id:'dataset_02',dataset_name:'CALCE CS2 Battery Dataset',status:'done',metadata_done:'yes',timeseries_done:'yes',cycle_summary_done:'yes',dataset_note_done:'yes',qc_done:'yes',last_updated:'2026/3/18',notes:'CALCE UMD; 4 cells; LCO; CS2-33/35/36/37; 1000+ cycles'},
+  {dataset_id:'dataset_03',dataset_name:'Stanford-MIT-TRI Fast-Charge',status:'done',metadata_done:'yes',timeseries_done:'yes',cycle_summary_done:'yes',dataset_note_done:'yes',qc_done:'yes',last_updated:'2026/3/19',notes:'124 LFP/graphite cells; fast charge protocol optimization; 40-2190 cycles'},
+  {dataset_id:'dataset_04',dataset_name:'Oxford Battery Degradation (NCA)',status:'wip',metadata_done:'yes',timeseries_done:'no',cycle_summary_done:'no',dataset_note_done:'no',qc_done:'no',last_updated:'2026/3/20',notes:'Oxford; 12 NCA 18650 cells; .mat MATLAB table objects; requires MATLAB conversion'},
+  {dataset_id:'dataset_05',dataset_name:'RWTH Aachen Lithium-Ion',status:'done',metadata_done:'yes',timeseries_done:'yes',cycle_summary_done:'yes',dataset_note_done:'yes',qc_done:'yes',last_updated:'2026/3/21',notes:'RWTH Aachen; CSV format; 48 NMC/Graphite cells; temperature variants'},
+  {dataset_id:'dataset_30',dataset_name:'Beihang EV Fault Diagnosis',status:'pending',metadata_done:'no',timeseries_done:'no',cycle_summary_done:'no',dataset_note_done:'no',qc_done:'no',last_updated:'2026/3/18',notes:'515 EVs; 18.2M BMS entries; 3 manufacturers; fault labels TR/EL/ISC/EA'},
+  {dataset_id:'skip_31',dataset_name:'EIS Spectroscopy Dataset A',status:'skip',metadata_done:'no',timeseries_done:'no',cycle_summary_done:'no',dataset_note_done:'no',qc_done:'no',last_updated:'2026/3/18',notes:'Pure EIS; no cycle aging data; not suitable for BatteryTwin benchmark'},
+];
+
+function setSyncState(state, msg){
+  const dot = document.getElementById('syncDot');
+  const txt = document.getElementById('syncText');
+  dot.className = 'sync-dot';
+  if(state==='syncing') dot.classList.add('syncing');
+  else if(state==='ok') dot.classList.add('ok');
+  else if(state==='error') dot.classList.add('error');
+  txt.textContent = msg;
+}
+
+async function loadGitHub(){
+  setSyncState('syncing', 'Connecting to GitHub...');
+  try {
+    const r = await fetch(GITHUB_RAW + '?t=' + Date.now());
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    const text = await r.text();
+    Papa.parse(text, {
+      header: true, skipEmptyLines: true,
+      complete: result => {
+        allData = result.data;
+        renderTable(allData);
+        updateMetrics(allData);
+        setSyncState('ok', `Synced from GitHub · ${allData.length} datasets · ${new Date().toLocaleTimeString()}`);
+      }
+    });
+  } catch(e) {
+    setSyncState('error', 'GitHub fetch failed (CORS?) — loading demo data');
+    allData = SAMPLE;
+    renderTable(allData); updateMetrics(allData);
+  }
+}
+
+document.getElementById('csvUpload').addEventListener('change', e => {
+  const file = e.target.files[0]; if(!file) return;
+  Papa.parse(file, {
+    header:true, skipEmptyLines:true,
+    complete: r => {
+      allData = r.data; renderTable(allData); updateMetrics(allData);
+      setSyncState('ok', `Loaded: ${file.name} · ${allData.length} datasets`);
+    }
+  });
+});
+
+// ─── METRICS ──────────────────────────────────────────────────────────────
+function updateMetrics(data){
+  const active = data.filter(d=>d.status!=='skip');
+  const qcN = data.filter(d=>(d.qc_done||'').toLowerCase()==='yes').length;
+  const instSet = new Set();
+  data.forEach(d=>{ const m=(d.notes||'').match(/^([^;]+)/); if(m) instSet.add(m[1].trim().split(/\s+/)[0]); });
+  animCount('mTotal', data.length);
+  animCount('mInst', instSet.size||5);
+  animCount('mQC', qcN);
+  document.getElementById('mActiveSub').textContent = active.length + ' active';
+  document.getElementById('bmDatasets').textContent = active.length + '+';
+  document.getElementById('footerDate').textContent = new Date().toISOString().split('T')[0];
+}
+
+function animCount(id, target){
+  const el=document.getElementById(id); let n=0; const step=Math.ceil(target/22);
+  const t=setInterval(()=>{ n=Math.min(n+step,target); el.textContent=n; if(n>=target) clearInterval(t); },45);
+}
+
+// ─── TABLE ────────────────────────────────────────────────────────────────
+function pill(s){ const v=(s||'').toLowerCase();
+  if(v==='done') return `<span class="pill pill-done">done</span>`;
+  if(v==='skip') return `<span class="pill pill-skip">skip</span>`;
+  if(v==='wip')  return `<span class="pill pill-wip">wip</span>`;
+  return `<span class="pill pill-pending">${s||'pending'}</span>`;
+}
+function ck(v){ const ok=(v||'').toLowerCase()==='yes'; return `<span class="ck ${ok?'y':'n'}"></span>`; }
+
+function renderTable(data){
+  const tb=document.getElementById('tableBody');
+  document.getElementById('rowCount').textContent = data.length;
+  if(!data.length){
+    tb.innerHTML=`<tr><td colspan="9"><div class="empty-state"><div class="empty-icon">🔍</div>No datasets match filters</div></td></tr>`; return;
+  }
+  tb.innerHTML = data.map(r=>`
+    <tr onclick='openDrawer(${JSON.stringify(JSON.stringify(r)).slice(1,-1)})'>
+      <td class="tdid">${r.dataset_id||'—'}</td>
+      <td class="tdname">${r.dataset_name||'—'}</td>
+      <td>${pill(r.status)}</td>
+      <td>${ck(r.metadata_done)}</td><td>${ck(r.timeseries_done)}</td>
+      <td>${ck(r.cycle_summary_done)}</td><td>${ck(r.dataset_note_done)}</td>
+      <td>${ck(r.qc_done)}</td>
+      <td>${r.last_updated||'—'}</td>
+    </tr>`).join('');
+}
+
+// ─── SORT ─────────────────────────────────────────────────────────────────
+document.querySelectorAll('thead th[data-col]').forEach(th=>{
+  th.addEventListener('click',()=>{
+    const col=th.dataset.col;
+    if(sortCol===col){ sortDir=sortDir==='asc'?'desc':'asc'; } else { sortCol=col; sortDir='asc'; }
+    document.querySelectorAll('thead th').forEach(t=>t.classList.remove('asc','desc','sorted'));
+    th.classList.add('sorted',sortDir);
+    renderTable(applyFilters([...allData].sort((a,b)=>sortDir==='asc'?((a[col]||'').localeCompare(b[col]||'')):((b[col]||'').localeCompare(a[col]||'')))));
+  });
+});
+
+// ─── FILTERS ──────────────────────────────────────────────────────────────
+function applyFilters(data){
+  const q=document.getElementById('searchInput').value.toLowerCase();
+  const st=document.getElementById('filterStatus').value.toLowerCase();
+  return data.filter(r=>{ const t=Object.values(r).join(' ').toLowerCase(); return (!q||t.includes(q))&&(!st||(r.status||'').toLowerCase().includes(st)); });
+}
+['searchInput','filterStatus'].forEach(id=>{ document.getElementById(id).addEventListener('input',()=>renderTable(applyFilters(allData))); });
+
+// ─── DRAWER ───────────────────────────────────────────────────────────────
+function openDrawer(json){
+  const r = JSON.parse(json);
+  document.getElementById('drid').textContent = r.dataset_id;
+  document.getElementById('drname').textContent = r.dataset_name;
+  const checks=['metadata_done','timeseries_done','cycle_summary_done','dataset_note_done','qc_done'];
+  const labels={'metadata_done':'Metadata','timeseries_done':'Timeseries','cycle_summary_done':'Cycle Summary','dataset_note_done':'Dataset Note','qc_done':'QC Pass'};
+  const pct = Math.round(checks.filter(c=>(r[c]||'').toLowerCase()==='yes').length/checks.length*100);
+  document.getElementById('drcontent').innerHTML=`
+    <div class="drsec">
+      <div class="drsec-title">Status & Completion</div>
+      <div style="display:flex;align-items:center;gap:1rem;margin-bottom:1rem">
+        ${pill(r.status)}
+        <div style="flex:1">
+          <div style="display:flex;justify-content:space-between;margin-bottom:3px">
+            <span style="font-family:var(--mono);font-size:0.62rem;color:var(--text3)">Pipeline</span>
+            <span style="font-family:var(--mono);font-size:0.62rem;color:var(--accent)">${pct}%</span>
+          </div>
+          <div class="pbar-bg" style="margin:0"><div class="pbar-fill" style="width:${pct}%"></div></div>
+        </div>
+      </div>
+      <div class="checklist">${checks.map(c=>{const ok=(r[c]||'').toLowerCase()==='yes';return`<div class="ci ${ok?'ok':'no'}">${ok?'✓':'○'} ${labels[c]}</div>`;}).join('')}</div>
+    </div>
+    <div class="drsec">
+      <div class="drsec-title">Metadata</div>
+      <div class="drgrid">
+        ${[['ID',r.dataset_id],['Updated',r.last_updated],['Source',r.source||'—'],['Assigned',r.assigned_student||'—'],['Reviewed',r.reviewed_by||'—']].map(([k,v])=>`<div><div class="dk">${k}</div><div class="dv">${v||'—'}</div></div>`).join('')}
+      </div>
+    </div>
+    ${r.source_url?`<div class="drsec"><div class="drsec-title">Source</div><a href="${r.source_url}" target="_blank" style="font-family:var(--mono);font-size:0.68rem;color:var(--accent);word-break:break-all">${r.source_url}</a></div>`:''}
+    ${r.notes?`<div class="drsec"><div class="drsec-title">Notes</div><div class="notesbox">${r.notes}</div></div>`:''}
+  `;
+  document.getElementById('overlay').classList.add('open');
+  document.getElementById('drawer').classList.add('open');
+}
+function closeDrawer(){ document.getElementById('overlay').classList.remove('open'); document.getElementById('drawer').classList.remove('open'); }
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeDrawer(); });
+
+// Boot
+document.getElementById('footerDate').textContent = new Date().toISOString().split('T')[0];
+allData = SAMPLE; renderTable(allData); updateMetrics(allData);
+setSyncState('', 'Demo data loaded · Click "GitHub Sync" to fetch live registry');
+</script>
+</body>
+</html>
