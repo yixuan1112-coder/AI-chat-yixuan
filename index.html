@@ -2476,6 +2476,30 @@ function showPage(name, navEl) {
     return item;
   }
 
+  async function postChat(message) {
+    const endpoints = [
+      '/api/chat',
+      'http://127.0.0.1:8000/api/chat',
+      'http://localhost:8000/api/chat'
+    ];
+    let lastError = null;
+
+    for (const endpoint of endpoints) {
+      try {
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message })
+        });
+        return await response.json();
+      } catch (error) {
+        lastError = error;
+      }
+    }
+
+    throw lastError || new Error('All AI backend endpoints failed.');
+  }
+
   toggle.addEventListener('click', () => {
     panel.classList.toggle('open');
     if (panel.classList.contains('open')) input.focus();
@@ -2493,15 +2517,10 @@ function showPage(name, navEl) {
     const loading = addMessage('Thinking...', 'bot');
 
     try {
-      const response = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message })
-      });
-      const data = await response.json();
+      const data = await postChat(message);
       loading.textContent = data.reply || 'No AI response was received.';
     } catch (error) {
-      loading.textContent = 'Could not connect to the AI backend. Make sure app.py is running and this page was opened from http://127.0.0.1:8000.';
+      loading.textContent = 'Could not connect to the AI backend. Make sure app.py is running, then refresh this page and try again.';
     } finally {
       input.disabled = false;
       input.focus();
