@@ -1,6 +1,7 @@
 import json
 import mimetypes
 import os
+import time
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib import error, parse, request
@@ -45,7 +46,9 @@ PROJECT_CONTEXT = load_project_context()
 
 def build_system_prompt():
     return (
-        "You are the BatteryTwin project assistant. Answer in the user's language. "
+        "You are the BatteryTwin project assistant. Answer in English by default. "
+        "Only answer in another language when the user explicitly asks you to. "
+        "If the user asks in Chinese or another language, understand the request and still respond in English. "
         "Help with battery datasets, schema, ETL scripts, quality checks, and benchmark workflows. "
         "Use the project context below when it is relevant.\n\n"
         f"{PROJECT_CONTEXT}"
@@ -54,21 +57,31 @@ def build_system_prompt():
 
 def post_json(url, payload, headers):
     body = json.dumps(payload).encode("utf-8")
-    req = request.Request(
-        url,
-        data=body,
-        headers={"Content-Type": "application/json", **headers},
-        method="POST",
-    )
 
-    try:
-        with request.urlopen(req, timeout=60) as response:
-            return json.loads(response.read().decode("utf-8"))
-    except error.HTTPError as exc:
-        detail = exc.read().decode("utf-8", errors="ignore")
-        raise RuntimeError(f"AI API error {exc.code}: {detail}") from exc
-    except Exception as exc:
-        raise RuntimeError(f"AI API request failed: {exc}") from exc
+    for attempt in range(3):
+        req = request.Request(
+            url,
+            data=body,
+            headers={"Content-Type": "application/json", **headers},
+            method="POST",
+        )
+
+        try:
+            with request.urlopen(req, timeout=60) as response:
+                return json.loads(response.read().decode("utf-8"))
+        except error.HTTPError as exc:
+            detail = exc.read().decode("utf-8", errors="ignore")
+            if exc.code in {500, 502, 503, 504} and attempt < 2:
+                time.sleep(1 + attempt)
+                continue
+            raise RuntimeError(f"AI API error {exc.code}: {detail}") from exc
+        except Exception as exc:
+            if attempt < 2:
+                time.sleep(1 + attempt)
+                continue
+            raise RuntimeError(f"AI API request failed: {exc}") from exc
+
+    raise RuntimeError("AI API request failed after retries.")
 
 
 def call_openai_compatible(message):
