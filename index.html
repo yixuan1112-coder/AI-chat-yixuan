@@ -681,17 +681,20 @@ body { font-family: var(--sans); background: var(--bg2); color: var(--text1); mi
   font-family: var(--sans);
 }
 .ai-chat-fab {
-  width: 64px;
+  min-width: 148px;
   height: 64px;
+  padding: 8px 16px 8px 10px;
   border: 0;
-  border-radius: 18px;
+  border-radius: 999px;
   background: linear-gradient(145deg, #1d4ed8, #2563eb 58%, #0d9488);
   color: #fff;
   cursor: pointer;
+  position: relative;
   box-shadow: 0 16px 34px rgba(37,99,235,0.34), inset 0 1px 0 rgba(255,255,255,0.28);
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 10px;
   transition: transform 0.18s ease, box-shadow 0.18s ease;
 }
 .ai-chat-fab:hover {
@@ -718,6 +721,24 @@ body { font-family: var(--sans); background: var(--bg2); color: var(--text1); mi
 .ai-chat-fab .ai-battery-bot {
   width: 44px;
   height: 44px;
+  flex-shrink: 0;
+}
+.ai-chat-fab-label {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  line-height: 1.05;
+}
+.ai-chat-fab-label strong {
+  font-size: 14px;
+  font-weight: 800;
+}
+.ai-chat-fab-label span {
+  font-size: 10px;
+  font-weight: 600;
+  opacity: 0.82;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 .ai-chat-panel {
   position: absolute;
@@ -825,6 +846,17 @@ body { font-family: var(--sans); background: var(--bg2); color: var(--text1); mi
   max-width: 82%;
   padding: 10px 12px;
   border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.ai-msg-text { white-space: pre-wrap; }
+.ai-msg-time {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  line-height: 1;
+  opacity: 0.68;
+  align-self: flex-end;
 }
 .ai-msg-user .ai-msg-bubble {
   background: linear-gradient(135deg, var(--accent), #1d4ed8);
@@ -838,6 +870,7 @@ body { font-family: var(--sans); background: var(--bg2); color: var(--text1); mi
   border-bottom-left-radius: 4px;
   box-shadow: 0 4px 12px rgba(15,23,42,0.05);
 }
+.ai-msg-bot .ai-msg-time { color: var(--text3); }
 .ai-typing {
   display: inline-flex;
   gap: 4px;
@@ -927,6 +960,13 @@ body { font-family: var(--sans); background: var(--bg2); color: var(--text1); mi
 }
 @media (max-width: 520px) {
   .ai-chat-widget { right: 16px; bottom: 16px; }
+  .ai-chat-fab {
+    min-width: 64px;
+    width: 64px;
+    padding: 0;
+    border-radius: 18px;
+  }
+  .ai-chat-fab-label { display: none; }
   .ai-chat-panel { bottom: 76px; }
 }
 </style>
@@ -2597,6 +2637,7 @@ function showPage(name, navEl) {
       <path d="M21 27h6" stroke="#0f172a" stroke-width="1.8" stroke-linecap="round"/>
       <path d="M11 22H6M37 22h5M17 39l-3 4M31 39l3 4" stroke="#ffffff" stroke-width="3" stroke-linecap="round"/>
     </svg>
+    <span class="ai-chat-fab-label"><strong>AI Assistant</strong><span>Gemini</span></span>
   </button>
   <section class="ai-chat-panel" id="aiChatPanel" aria-label="BatteryTwin AI Assistant">
     <div class="ai-chat-header">
@@ -2635,7 +2676,10 @@ function showPage(name, navEl) {
             <path d="M11 22H6M37 22h5M17 39l-3 4M31 39l3 4" stroke="#2563eb" stroke-width="3" stroke-linecap="round"/>
           </svg>
         </span>
-        <span class="ai-msg-bubble">Hi, I can help you understand BatteryTwin datasets, schema, ETL scripts, and benchmark workflows.</span>
+        <span class="ai-msg-bubble">
+          <span class="ai-msg-text">Hi, I can help you understand BatteryTwin datasets, schema, ETL scripts, and benchmark workflows.</span>
+          <span class="ai-msg-time">Now</span>
+        </span>
       </div>
     </div>
     <div class="ai-chat-suggestions" aria-label="Suggested questions">
@@ -2663,6 +2707,7 @@ function showPage(name, navEl) {
   const messages = document.getElementById('aiChatMessages');
   const sendButton = form.querySelector('button[type="submit"]');
   const suggestions = document.querySelectorAll('.ai-suggestion');
+  const STORAGE_KEY = 'batteryTwinAiChatHistory';
   const batteryBotIcon = `
     <svg class="ai-battery-bot" viewBox="0 0 48 48" aria-hidden="true">
       <rect x="11" y="9" width="26" height="30" rx="7" fill="#ffffff" stroke="#bfdbfe" stroke-width="1.5"/>
@@ -2676,7 +2721,39 @@ function showPage(name, navEl) {
     </svg>
   `;
 
-  function addMessage(text, type) {
+  function readHistory() {
+    try {
+      const history = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+      return Array.isArray(history) ? history : [];
+    } catch (_) {
+      return [];
+    }
+  }
+
+  function writeHistory(history) {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(history.slice(-80)));
+    } catch (_) { /* local storage may be unavailable */ }
+  }
+
+  function saveMessage(text, type, time) {
+    const history = readHistory();
+    history.push({ text, type, time });
+    writeHistory(history);
+  }
+
+  function formatMessageTime(value) {
+    const date = value ? new Date(value) : new Date();
+    if (Number.isNaN(date.getTime())) return '';
+    const now = new Date();
+    const sameDay = date.toDateString() === now.toDateString();
+    return date.toLocaleString('en-US', sameDay
+      ? { hour: '2-digit', minute: '2-digit' }
+      : { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+  }
+
+  function addMessage(text, type, options = {}) {
+    const time = options.time || new Date().toISOString();
     const item = document.createElement('div');
     item.className = `ai-msg ai-msg-${type}`;
     if (type === 'bot') {
@@ -2686,17 +2763,29 @@ function showPage(name, navEl) {
       avatar.innerHTML = batteryBotIcon;
       const bubble = document.createElement('span');
       bubble.className = 'ai-msg-bubble';
-      bubble.textContent = text;
+      const content = document.createElement('span');
+      content.className = 'ai-msg-text';
+      content.textContent = text;
+      const timestamp = document.createElement('span');
+      timestamp.className = 'ai-msg-time';
+      timestamp.textContent = formatMessageTime(time);
+      bubble.append(content, timestamp);
       item.append(avatar, bubble);
     } else {
       const bubble = document.createElement('span');
       bubble.className = 'ai-msg-bubble';
-      bubble.textContent = text;
+      const content = document.createElement('span');
+      content.className = 'ai-msg-text';
+      content.textContent = text;
+      const timestamp = document.createElement('span');
+      timestamp.className = 'ai-msg-time';
+      timestamp.textContent = formatMessageTime(time);
+      bubble.append(content, timestamp);
       item.appendChild(bubble);
     }
     messages.appendChild(item);
     messages.scrollTop = messages.scrollHeight;
-    return item.querySelector('.ai-msg-bubble');
+    return item.querySelector('.ai-msg-text');
   }
 
   function setTyping(bubble) {
@@ -2708,23 +2797,44 @@ function showPage(name, navEl) {
     input.style.height = Math.min(input.scrollHeight, 116) + 'px';
   }
 
+  function restoreHistory() {
+    const history = readHistory();
+    if (!history.length) {
+      const welcomeTime = messages.querySelector('.ai-msg-time');
+      if (welcomeTime) welcomeTime.textContent = formatMessageTime();
+      return;
+    }
+    messages.innerHTML = '';
+    history.forEach(entry => {
+      if (!entry || !entry.text || !entry.type) return;
+      addMessage(entry.text, entry.type, { time: entry.time });
+    });
+  }
+
   async function sendMessage(message) {
     const cleanMessage = message.trim();
     if (!cleanMessage) return;
 
-    addMessage(cleanMessage, 'user');
+    const userTime = new Date().toISOString();
+    addMessage(cleanMessage, 'user', { time: userTime });
+    saveMessage(cleanMessage, 'user', userTime);
     input.value = '';
     resizeInput();
     input.disabled = true;
     sendButton.disabled = true;
-    const loading = addMessage('', 'bot');
+    const loadingTime = new Date().toISOString();
+    const loading = addMessage('', 'bot', { time: loadingTime });
     setTyping(loading);
 
     try {
       const data = await postChat(cleanMessage);
-      loading.textContent = data.reply || 'No AI response was received.';
+      const reply = data.reply || 'No AI response was received.';
+      loading.textContent = reply;
+      saveMessage(reply, 'bot', loadingTime);
     } catch (error) {
-      loading.textContent = 'Could not connect to the AI backend. Make sure app.py is running, then refresh this page and try again.';
+      const errorMessage = 'Could not connect to the AI backend. Make sure app.py is running, then refresh this page and try again.';
+      loading.textContent = errorMessage;
+      saveMessage(errorMessage, 'bot', loadingTime);
     } finally {
       input.disabled = false;
       sendButton.disabled = false;
@@ -2779,6 +2889,8 @@ function showPage(name, navEl) {
     event.preventDefault();
     sendMessage(input.value);
   });
+
+  restoreHistory();
 })();
 </script>
 </body>
